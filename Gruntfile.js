@@ -71,7 +71,7 @@ module.exports = function(grunt) {
 
     lintspaces: {
       all: {
-        src: [jsFiles, "!*.min.js"],
+        src: [jsFiles, "!*.min.js", "!code/js/lib/**/*"],
         options: {
           editorconfig: ".editorconfig",
           ignores: ["js-comments"]

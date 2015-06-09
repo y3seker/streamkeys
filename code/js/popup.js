@@ -177,6 +177,10 @@ var Popup = function() {
     // Set the options link to the options page
     $("#options-link").attr("href", chrome.runtime.getURL("html/options.html"));
 
+    $("#sync-link").click(function() {
+      chrome.runtime.sendMessage({ action: "sync_player"});
+    });
+
     // Send a request to get the player state of every active music site tab
     chrome.runtime.sendMessage({ action: "get_music_tabs" }, getTabStates.bind(this));
 

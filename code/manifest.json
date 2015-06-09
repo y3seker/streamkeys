@@ -30,9 +30,6 @@
   "permissions": ["tabs", "storage", "http://*/*", "https://*/*"],
   "commands": {
     "playPause": {
-      "suggested_key": {
-        "default": "MediaPlayPause"
-      },
       "global": true,
       "description": "Toggle play/pause"
     },

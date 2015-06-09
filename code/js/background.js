@@ -80,6 +80,10 @@
 
       return true;
     }
+    if(request.action === "sync_player") {
+      console.log("Setup web socket client");
+      window.socket = require("./modules/SocketClient.js").init();
+    }
   });
 
   /**
