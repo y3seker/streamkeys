@@ -305,6 +305,35 @@
   };
 
   /**
+   * Gets the player state from all active music tabs
+   * @return {Promise}
+   */
+  Sitelist.prototype.getPlayerstates = function() {
+    var that = this;
+    var promise = new Promise(function(resolve) {
+      that.getActiveMusicTabs().then(function(activeTabs) {
+        activeTabs.forEach(function(tab) {
+          that.playerStates = [];
+          that.responseCount = 0;
+          chrome.tabs.sendMessage(tab.id, { action: "getPlayerState" }, function(playerState) {
+            console.log("state: ", playerState);
+            that.playerStates[tab.id] = {
+              state: playerState,
+              tabInfo: tab
+            };
+            that.responseCount++;
+            if(that.responseCount === activeTabs.length) {
+              resolve(that.playerStates);
+            }
+          });
+        });
+      });
+    });
+
+    return promise;
+  };
+
+  /**
    * When Sitelist is required create a new singleton and return that
    * Note: This makes all methods/properties of Sitelist publicly exposed
    */

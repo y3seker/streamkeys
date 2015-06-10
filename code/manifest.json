@@ -30,6 +30,9 @@
   "permissions": ["tabs", "storage", "http://*/*", "https://*/*"],
   "commands": {
     "playPause": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+3"
+      },
       "global": true,
       "description": "Toggle play/pause"
     },
