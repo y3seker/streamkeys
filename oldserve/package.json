@@ -1,0 +1,10 @@
+{
+  "name": "StreamkeysServer",
+  "version": "0.0.1",
+  "description": "Server for streamkeys site.",
+  "dependencies": {
+    "passport": "~0.2.2",
+    "express": "~4.12.4",
+    "mongoose": "~4.0.5"
+  }
+}
