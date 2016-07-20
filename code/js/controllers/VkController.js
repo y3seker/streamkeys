@@ -1,25 +1,87 @@
 ;(function() {
   "use strict";
 
-  var sk_log = require("../modules/SKLog.js"),
-      MouseEventController = require("MouseEventController"),
-      SimpleMutationObserver = require("../modules/SimpleMutationObserver.js"),
-      selectors,
-      controller,
-      vkObserver;
+  // DOM state listener
+  var DOMState = function (controller) {
+    var self = this;
 
-  // if new ui detected
+    self.selectors = {};
+    self.inserted = {};
+    self.removed = {};
+
+    self.controller = controller;
+    self.document = controller.doc();
+
+    self.observer = new MutationObserver(function() {
+      for (var selector in self.selectors) {
+        var oldState = self.isEnabled(selector);
+        var newState = self.checkEnabled(selector);
+        self.selectors[selector] = newState;
+
+        if (oldState != newState) {
+          if (newState) {
+            self.inserted[selector] = self.inserted[selector].filter(function(handler) {return handler() !== false;});
+          }
+          else {
+            self.removed[selector] = self.removed[selector].filter(function(handler) {return handler() !== false;});
+          }
+        }
+      }
+    });
+
+    self.observer.observe(self.document.body, {childList: true, subtree: true, attributes: true});
+  };
+
+  DOMState.prototype.checkEnabled = function(selector) {
+    return Boolean(this.document.querySelector(selector));
+  };
+
+  DOMState.prototype.isEnabled = function(selector) {
+    return Boolean(this.selectors[selector]);
+  };
+
+  DOMState.prototype.addSelector = function(selector) {
+    if (!this.selectors.hasOwnProperty(selector)) {
+      this.selectors[selector] = this.checkEnabled(selector);
+      this.inserted[selector] = [];
+      this.removed[selector] = [];
+    }
+  };
+
+  DOMState.prototype.onInserted = function(selector, handler) {
+    this.addSelector(selector);
+    this.inserted[selector].push(handler);
+  };
+
+  DOMState.prototype.onRemoved = function(selector, handler) {
+    this.addSelector(selector);
+    this.removed[selector].push(handler);
+  };
+
+
+  var simulateMouseEvent = function(event) {
+    return function(selector) {
+      var evt = document.createEvent("MouseEvents");
+      evt.initMouseEvent(event, true, true, window, 1, 0, 0, 0, 0, false, false, false, false, 0, null);
+      var cb = document.querySelector(selector);
+      cb.dispatchEvent(evt);
+    };
+  };
+
+
+  var simulateOver = simulateMouseEvent("mouseover");
+  var simulateDown = simulateMouseEvent("mousedown");
+
+  var sk_log = require("../modules/SKLog.js");
+  var BaseController = require("BaseController");
+  var controller, vkState;
+
+
+  // New ui
   if (document.getElementById("top_notify_btn")) {
     sk_log("[VK] New ui detected");
 
-    selectors = {
-      headerPlayer: "#top_audio_player",
-      headerPlayerEnabled: "#top_audio_player.top_audio_player_enabled",
-      headerPlayerIcon: "#top_audio",
-      playerPanelPlay: ".audio_page_player_play"
-    };
-
-    controller = new MouseEventController({
+    controller = new BaseController({
       siteName: "VK Music",
 
       playPause: "#top_audio_player.top_audio_player_enabled .top_audio_player_play",
@@ -30,112 +92,96 @@
       song: "#top_audio_player.top_audio_player_enabled .top_audio_player_title"
     });
 
-    vkObserver = new SimpleMutationObserver(controller.doc());
+    vkState = new DOMState(controller);
+    vkState.addSelector("#top_audio_player.top_audio_player_enabled");
 
-    // overrides
     controller.playPause = function() {
       var self = this;
-
-      // if player on header enabled call super and return
-      if (vkObserver.isEnabled(selectors.headerPlayerEnabled)) {
-        return MouseEventController.prototype.playPause.call(self);
+      if (vkState.isEnabled("#top_audio_player.top_audio_player_enabled")) {
+        return BaseController.prototype.playPause.call(self); // call super
       }
-      // if play button enabled (e.g. current page it's music) start playing and return
-      if (vkObserver.isEnabled(selectors.playerPanelPlay)) {
-        return self.click({selectorButton: selectors.playerPanelPlay});
-      }
-
-      // listen when player initialized
-      vkObserver.once(selectors.playerPanelPlay, "inserted", function() {
-        self.click({selectorButton: selectors.playerPanelPlay}); // start playing
-        self.mousedown({selectorButton: selectors.headerPlayer}); // hide player panel
+      // Hide pad after player initialization
+      var playSelector = "#audio_layer_tt > ._audio_layer > ._audio_page_player > .audio_play_wrap";
+      vkState.onInserted(playSelector, function() {
+        self.click({selectorButton: playSelector});
+        self.click({selectorButton: "#top_audio_player"});
+        return false; // once
       });
 
-      // player initialization, click does not work
-      // first need mouseover, and then mousedown
-      self.mouseover({selectorButton: selectors.headerPlayerIcon});
-      self.mousedown({selectorButton: selectors.headerPlayerIcon});
+      // Audio player initializer
+      simulateOver("#top_audio");
+      simulateDown("#top_audio");
     };
   }
 
-  // if new ui not detected
+  // Old ui
   else {
     sk_log("[VK] New ui not detected");
 
-    selectors = {
-      headerPlayButton: "#head_play_btn",
-      playerPanel: "#gp",
-      playerPanelInfo: "#gp_info",
-      playerPanelNext: "#pd_next",
-      playerPanelPrev: "#pd_prev"
-    };
-
-    controller = new MouseEventController({
+    controller = new BaseController({
       siteName: "VK Music",
       playPause: "#gp_play",
-      playNext: selectors.playerPanelNext,
-      playPrev: selectors.playerPanelPrev,
+      playNext: "#pd_next",
+      playPrev: "#pd_prev",
 
       playState: "#gp_play.playing",
       artist: "#gp_performer",
       song: "#gp_title"
     });
 
-    vkObserver = new SimpleMutationObserver(controller.doc());
+    vkState = new DOMState(controller);
+    vkState.addSelector("#gp");
+    vkState.addSelector("#pd_next");
+    vkState.addSelector("#pd_prev");
 
-    // click on initSelector, wait when waitSelector will be inserted,
-    // click on waitSelector if needed and close player panel
-    controller.initWaitAndClose = function(waitSelector, initSelector, clickOnWaitSelector) {
-      var self = this;
-
-      // default init player panel from header button
-      waitSelector = waitSelector || selectors.playerPanelInfo;
-      initSelector = initSelector || selectors.headerPlayButton;
-
-      vkObserver.once(waitSelector, "inserted", function() {
-        if (clickOnWaitSelector) {
-          self.click({selectorButton: waitSelector});
-        }
-        self.click({selectorButton: selectors.playerPanelInfo}); // hide player
-      });
-      self.click({selectorButton: initSelector});
-    };
-
-    // overrides
     controller.playPause = function() {
       var self = this;
-      // if player panel enabled call super method and return
-      if (vkObserver.isEnabled(selectors.playerPanel)) {
-        return MouseEventController.prototype.playPause.call(self);
+      if (vkState.isEnabled("#gp")) {
+        return BaseController.prototype.playPause.call(self); // call super
       }
-      // initialize player panel
-      self.initWaitAndClose();
+      // Hide pad after player initialization
+      vkState.onInserted("#gp_info", function() {
+        self.click({selectorButton: "#gp_info"});
+        return false; // once
+      });
+      // Audio player initializer
+      self.click({selectorButton: "#head_play_btn"});
     };
 
     controller.playNext = function() {
       var self = this;
-      // if player panel already opened call super method and return
-      if (vkObserver.isEnabled(selectors.playerPanelNext)) {
-        return MouseEventController.prototype.playNext.call(self);
+      if (vkState.isEnabled("#pd_next")) {
+        return BaseController.prototype.playNext.call(self); // call super
       }
-      // open player panel, click next button, close player panel
-      self.initWaitAndClose(selectors.playerPanelNext, selectors.playerPanelInfo, true);
+      // After pad enabled switch track and close pad
+      vkState.onInserted("#pd_next", function() {
+        self.click({selectorButton: "#pd_next"});
+        self.click({selectorButton: "#gp_info"});
+        return false; // once
+      });
+      // Open pad unless already opened
+      self.click({selectorButton: "#gp_info"});
     };
 
     controller.playPrev = function() {
       var self = this;
-      // if player panel already opened call super method and return
-      if (vkObserver.isEnabled(selectors.playerPanelPrev)) {
-        return MouseEventController.prototype.playPrev.call(self);
+      if (vkState.isEnabled("#pd_prev")) {
+        return BaseController.prototype.playPrev.call(self); // call super
       }
-      // open player panel, click prev button, close player panel
-      self.initWaitAndClose(selectors.playerPanelPrev, selectors.playerPanelInfo, true);
+      // After pad enabled switch track and close pad
+      vkState.onInserted("#pd_prev", function() {
+        self.click({selectorButton: "#pd_prev"});
+        self.click({selectorButton: "#gp_info"});
+        return false; // once
+      });
+      // Open pad unless already opened
+      self.click({selectorButton: "#gp_info"});
     };
 
     controller.getStateData = function() {
-      var result = MouseEventController.prototype.getStateData.call(this); // call super
-      // if player panel enabled activate prev/next buttons
-      if (vkObserver.isEnabled(selectors.playerPanel)) {
+      var self = this;
+      var result = BaseController.prototype.getStateData.call(self); // call super
+      if (vkState.isEnabled("#gp")) {
         result.canPlayPrev = true;
         result.canPlayNext = true;
       }
