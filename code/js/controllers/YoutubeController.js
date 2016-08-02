@@ -74,8 +74,17 @@
     };
 
     controller.playPrev = function() {
-      if(document.querySelector(this.selectors.playPrev) === null) sk_log("disabled. Playlist selectors not found!");
-      else this.click({selectorButton: this.selectors.playPrev, action: "playPrev"});
+      var playPrevButton = document.querySelector(this.selectors.playPrev);
+      if (playPrevButton === null) sk_log("disabled. Playlist selectors not found!");
+      else {
+        if (playPrevButton.getAttribute("aria-disabled") === "true"){
+            sk_log("forced playPrev aka go back, because video is not in a playlist.");
+            // TODO ensure that previous page has player
+            window.history.back();
+        }
+        else
+          this.click({selectorButton: this.selectors.playPrev, action: "playPrev"});
+      }
     };
   });
 
