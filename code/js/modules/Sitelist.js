@@ -214,6 +214,9 @@
       if(!obj.hasOwnProperty("hotkey-youtube_restart")) {
         chrome.storage.sync.set({ "hotkey-youtube_restart": false });
       }
+      if(!obj.hasOwnProperty("hotkey-youtube_timestamps")) {
+        chrome.storage.sync.set({ "hotkey-youtube_timestamps": false });
+      }
     });
   };
 

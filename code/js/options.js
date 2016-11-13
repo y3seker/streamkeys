@@ -40,6 +40,11 @@ var OptionsViewModel = function OptionsViewModel() {
       chrome.storage.sync.set({ "hotkey-youtube_restart": value });
     });
 
+    self.youtubeTimestamps = ko.observable(obj["hotkey-youtube_timestamps"]);
+    self.youtubeTimestamps.subscribe(function(value) {
+      chrome.storage.sync.set({ "hotkey-youtube_timestamps": value });
+    });
+
     self.settingsInitialized(true);
   });
 
