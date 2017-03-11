@@ -3,6 +3,7 @@
 
   var BaseController = require("BaseController"),
       sk_log = require("../modules/SKLog.js"),
+      $ = require("jquery"),
       _ = require("lodash");
 
   var multiSelectors = {
